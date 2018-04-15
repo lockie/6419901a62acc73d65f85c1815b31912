@@ -1,0 +1,90 @@
+version: '2.3'
+volumes:
+  data:
+  media:
+services:
+  # NOTE: there's no nginx in setup, uwsgi does everything needed
+
+  admin-area:
+    build: admin-area
+    environment:
+      - ADMIN_USER
+      - ADMIN_EMAIL
+      - ADMIN_PASSWORD
+      - SECRET_KEY
+    volumes:
+      - media:/var/www/media
+    ports:
+      - 80:80
+    depends_on:
+      postgres:
+        condition: service_healthy
+      celery:
+        condition: service_started
+    restart: unless-stopped
+
+  data-generator:
+    build: data-generator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  graph-generator:
+    build: graph-generator
+    depends_on:
+      highcharts:
+        condition: service_started
+    restart: unless-stopped
+
+  celery:
+    build: admin-area
+    command: celery -A admin_area --loglevel=info worker
+    environment:
+      - SECRET_KEY
+    volumes:
+      - media:/var/www/media
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:10-alpine
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_DB=default
+    volumes:
+      - data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -d default"
+      interval: 6s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:alpine
+    healthcheck:
+      test: "rabbitmqctl status"
+      interval: 6s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    sysctls:
+      - net.core.somaxconn=512
+    healthcheck:
+      test: "redis-cli ping"
+      interval: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  highcharts:
+    image: onsdigital/highcharts-export-node
+    restart: unless-stopped

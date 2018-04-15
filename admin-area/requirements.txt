@@ -1,0 +1,8 @@
+celery==4.1.0
+Django==2.0.4
+Pillow==5.1.0
+psycopg2==2.7.4
+pytz==2018.4
+redis==2.10.6
+requests==2.18.4
+uWSGI==2.0.17
